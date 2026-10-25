@@ -1,0 +1,6 @@
+{
+  "name": "Train Tracks - Gra Logiczna Tory Kolejowe",
+  "description": "Polska gra logiczna Train Tracks PWA z proceduralnym generatorem tras, 5 poziomami trudności, precyzyjnymi podkładami na zakrętach i motywami kamieni szlachetnych.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

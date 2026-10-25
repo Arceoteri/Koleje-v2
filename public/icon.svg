@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#090d16" />
+    </linearGradient>
+    <linearGradient id="gem" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="50%" stop-color="#ef4444" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <linearGradient id="rail" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#ef4444" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)" />
+  <rect x="12" y="12" width="488" height="488" rx="98" fill="none" stroke="url(#gem)" stroke-width="4" stroke-opacity="0.35" />
+
+  <!-- Grid overlay subtle -->
+  <path d="M 128 32 L 128 480 M 256 32 L 256 480 M 384 32 L 384 480 M 32 128 L 480 128 M 32 256 L 480 256 M 32 384 L 480 384"
+        stroke="#334155" stroke-width="2" stroke-opacity="0.25" stroke-dasharray="6,6" />
+
+  <!-- Railway curved tracks -->
+  <!-- Ties / Sleepers -->
+  <g stroke="#5c3317" stroke-width="14" stroke-linecap="round">
+    <line x1="120" y1="360" x2="120" y2="440" />
+    <line x1="180" y1="360" x2="180" y2="440" />
+    <line x1="240" y1="360" x2="240" y2="440" />
+    <line x1="300" y1="360" x2="300" y2="440" />
+    <line x1="360" y1="360" x2="360" y2="440" />
+    <line x1="420" y1="360" x2="420" y2="440" />
+  </g>
+  <!-- Sleepers interior highlight -->
+  <g stroke="#854d0e" stroke-width="6" stroke-linecap="round">
+    <line x1="120" y1="362" x2="120" y2="438" />
+    <line x1="180" y1="362" x2="180" y2="438" />
+    <line x1="240" y1="362" x2="240" y2="438" />
+    <line x1="300" y1="362" x2="300" y2="438" />
+    <line x1="360" y1="362" x2="360" y2="438" />
+    <line x1="420" y1="362" x2="420" y2="438" />
+  </g>
+
+  <!-- Dual rails -->
+  <line x1="80" y1="380" x2="440" y2="380" stroke="url(#rail)" stroke-width="12" stroke-linecap="round" filter="url(#glow)" />
+  <line x1="80" y1="420" x2="440" y2="420" stroke="url(#rail)" stroke-width="12" stroke-linecap="round" filter="url(#glow)" />
+  <line x1="80" y1="380" x2="440" y2="380" stroke="#fef08a" stroke-width="3" stroke-linecap="round" />
+  <line x1="80" y1="420" x2="440" y2="420" stroke="#fef08a" stroke-width="3" stroke-linecap="round" />
+
+  <!-- Modern Steam / Express Locomotive Front / Side Profile -->
+  <g transform="translate(140, 100)">
+    <!-- Steam puff clouds -->
+    <circle cx="50" cy="50" r="22" fill="#94a3b8" fill-opacity="0.3" />
+    <circle cx="85" cy="30" r="30" fill="#cbd5e1" fill-opacity="0.45" />
+    <circle cx="130" cy="15" r="24" fill="#f1f5f9" fill-opacity="0.5" />
+
+    <!-- Train Body -->
+    <rect x="40" y="80" width="160" height="150" rx="16" fill="#1e293b" stroke="#f59e0b" stroke-width="5" />
+    <!-- Cab Window -->
+    <rect x="58" y="100" width="56" height="48" rx="8" fill="#38bdf8" fill-opacity="0.9" stroke="#0284c7" stroke-width="3" />
+    <!-- Cab roof -->
+    <path d="M 30 80 Q 120 68 210 80" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" fill="none" />
+    <!-- Smokestack / Chimney -->
+    <path d="M 148 80 L 148 50 L 165 44 L 131 44 L 148 50" stroke="#ef4444" stroke-width="4" fill="#b91c1c" />
+    <!-- Headlight glow -->
+    <circle cx="190" cy="180" r="18" fill="#fbbf24" filter="url(#glow)" />
+    <circle cx="190" cy="180" r="10" fill="#fff" />
+    <!-- Cowcatcher / pilot -->
+    <path d="M 180 220 L 210 240 L 160 240 Z" fill="#dc2626" />
+    <!-- Wheels -->
+    <circle cx="70" cy="235" r="24" fill="#475569" stroke="#94a3b8" stroke-width="6" />
+    <circle cx="70" cy="235" r="8" fill="#f59e0b" />
+    <circle cx="130" cy="235" r="24" fill="#475569" stroke="#94a3b8" stroke-width="6" />
+    <circle cx="130" cy="235" r="8" fill="#f59e0b" />
+    <!-- Connecting rod -->
+    <line x1="70" y1="235" x2="130" y2="235" stroke="#e2e8f0" stroke-width="5" stroke-linecap="round" />
+  </g>
+</svg>
