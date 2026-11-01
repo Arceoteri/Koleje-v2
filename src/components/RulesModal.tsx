@@ -56,8 +56,8 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, isDark 
             </h3>
             <p className="text-slate-300">
               Twoim zadaniem jest ułożenie <strong>jednej, ciągłej linii torów</strong> kolejowych,
-              która łączy wjazd do krainy (punkt <strong className="text-emerald-400">A</strong>) z
-              wyjazdem (punkt <strong className="text-rose-400">B</strong>).
+              która łączy stację początkową (punkt <strong className="text-emerald-400">Start A</strong>) ze
+              stacją końcową (punkt <strong className="text-rose-400">Meta B</strong>).
             </p>
           </section>
 
@@ -106,26 +106,68 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, isDark 
             </div>
           </section>
 
+          {/* Pulpit Maszynisty (HUD) i Współrzędne Stacji */}
+          <section className="space-y-2 pt-2 border-t border-slate-800">
+            <h3 className="font-semibold text-base flex items-center gap-2">
+              <Navigation className="w-4 h-4 text-emerald-400" /> Pulpit Maszynisty (HUD) i Oznaczenia
+            </h3>
+            <div className="space-y-2 text-xs">
+              <div className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 flex flex-col gap-1.5 text-slate-300">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-5 h-5 rounded bg-emerald-500 text-slate-950 font-black text-[10px] shrink-0">
+                    A
+                  </span>
+                  <span>
+                    <strong className="text-emerald-400">Start A:</strong> Krawędź początkowa oraz wyróżnione współrzędne <code>Wiersz: X, Kolumna: Y</code> (np. Wiersz 4, Kolumna 1).
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-5 h-5 rounded bg-rose-500 text-white font-black text-[10px] shrink-0">
+                    B
+                  </span>
+                  <span>
+                    <strong className="text-rose-400">Meta B:</strong> Krawędź docelowa oraz wyróżnione współrzędne <code>Wiersz: X, Kolumna: Y</code> (np. Wiersz 1, Kolumna 4).
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-slate-300">
+                <div className="p-2 rounded bg-slate-800/40 border border-slate-700">
+                  <strong>⏱ Zegar & 👣 Ruchy:</strong> Precyzyjny czas obecnej gry oraz licznik wykonanych posunięć.
+                </div>
+                <div className="p-2 rounded bg-slate-800/40 border border-slate-700">
+                  <strong>Nowa gra:</strong> Kwadratowy przycisk losujący nową planszę o wybranej siatce i trudności.
+                </div>
+                <div className="p-2 rounded bg-slate-800/40 border border-slate-700">
+                  <strong>↩ Cofnij & 🔄 Reset:</strong> Kwadratowe przyciski do cofania kroków lub czyszczenia planszy do stanu początkowego.
+                </div>
+                <div className="p-2 rounded bg-slate-800/40 border border-slate-700">
+                  <strong>💡 Wskazówka (+3):</strong> Kwadratowy przycisk – ujawnia i trwale blokuje poprawny tor dla losowego pola (kara +3 ruchy).
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* Narzędzia w dolnym pasku */}
           <section className="space-y-2 pt-2 border-t border-slate-800">
             <h3 className="font-semibold text-base flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" /> Narzędzia i obsługa klikania
+              <AlertTriangle className="w-4 h-4 text-amber-400" /> Narzędzia wprowadzania torów
             </h3>
             <p className="text-slate-300 text-xs">
               Wybierz tryb z dolnego paska, a następnie dotknij pola na planszy:
             </p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
               <div className="p-2 rounded bg-slate-800/40 border border-slate-700">
                 <strong>🔄 Cykl:</strong> Przełącza kolejno: Puste ➔ Poziomy ➔ Pionowy ➔ 4 Zakręty ➔ X.
               </div>
               <div className="p-2 rounded bg-slate-800/40 border border-slate-700">
-                <strong>━ / ┃ Proste:</strong> Przełącza wyłącznie proste (Poziomy ➔ Pionowy ➔ Puste).
+                <strong>━ Poziom & ┃ Pion:</strong> Dwa osobne narzędzia do bezpośredniego stawiania linii prostych.
               </div>
               <div className="p-2 rounded bg-slate-800/40 border border-slate-700">
-                <strong>↗ ↘ ↙ ↖ Zakręty:</strong> Kliknij konkretny zakręt w pasku, aby od razu stawiać go na planszy.
+                <strong>G-P, P-D, D-L, G-L:</strong> 4 dedykowane narzędzia do bezpośredniego wstawiania zakrętów kolejowych.
               </div>
               <div className="p-2 rounded bg-slate-800/40 border border-slate-700">
-                <strong>❌ Krzyżyk:</strong> Błyskawicznie oznacza pola, na których na pewno nie biegną tory.
+                <strong>❌ Brak (X) & 🧹 Gumka:</strong> Oznaczanie pustych pól oraz wymazywanie (pojedynczo lub przeciągając palcem).
               </div>
             </div>
           </section>

@@ -290,3 +290,106 @@ export const TrackTile: React.FC<TrackTileProps> = ({
     </button>
   );
 };
+
+export interface TrackMiniPreviewProps {
+  track: TrackType;
+  gemPalette: GemPalette;
+  className?: string;
+}
+
+export const TrackMiniPreview: React.FC<TrackMiniPreviewProps> = ({
+  track,
+  gemPalette,
+  className = 'w-6 h-6',
+}) => {
+  const sleeperColor = '#5c3317';
+  const sleeperStroke = '#381e0d';
+  const railColor = gemPalette.railColor;
+  const baseHighlight = gemPalette.baseColor;
+
+  return (
+    <svg viewBox="0 0 100 100" className={`${className} pointer-events-none drop-shadow-sm shrink-0`}>
+      {/* Ballast / Base background */}
+      <rect x="2" y="2" width="96" height="96" rx="14" fill="currentColor" fillOpacity="0.12" />
+
+      {track === 'H' && (
+        <g>
+          {[16, 38, 62, 84].map(x => (
+            <g key={x}>
+              <line x1={x} y1="20" x2={x} y2="80" stroke={sleeperStroke} strokeWidth="10" strokeLinecap="round" />
+              <line x1={x} y1="20" x2={x} y2="80" stroke={sleeperColor} strokeWidth="7" strokeLinecap="round" />
+            </g>
+          ))}
+          <line x1="0" y1="36" x2="100" y2="36" stroke={railColor} strokeWidth="7" />
+          <line x1="0" y1="64" x2="100" y2="64" stroke={railColor} strokeWidth="7" />
+          <line x1="0" y1="36" x2="100" y2="36" stroke={baseHighlight} strokeWidth="2.5" strokeOpacity="0.8" />
+          <line x1="0" y1="64" x2="100" y2="64" stroke={baseHighlight} strokeWidth="2.5" strokeOpacity="0.8" />
+        </g>
+      )}
+
+      {track === 'V' && (
+        <g>
+          {[16, 38, 62, 84].map(y => (
+            <g key={y}>
+              <line x1="20" y1={y} x2="80" y2={y} stroke={sleeperStroke} strokeWidth="10" strokeLinecap="round" />
+              <line x1="20" y1={y} x2="80" y2={y} stroke={sleeperColor} strokeWidth="7" strokeLinecap="round" />
+            </g>
+          ))}
+          <line x1="36" y1="0" x2="36" y2="100" stroke={railColor} strokeWidth="7" />
+          <line x1="64" y1="0" x2="64" y2="100" stroke={railColor} strokeWidth="7" />
+          <line x1="36" y1="0" x2="36" y2="100" stroke={baseHighlight} strokeWidth="2.5" strokeOpacity="0.8" />
+          <line x1="64" y1="0" x2="64" y2="100" stroke={baseHighlight} strokeWidth="2.5" strokeOpacity="0.8" />
+        </g>
+      )}
+
+      {(track === 'CURVE_TR' ||
+        track === 'CURVE_BR' ||
+        track === 'CURVE_BL' ||
+        track === 'CURVE_TL') && (
+        <g
+          transform={`rotate(${
+            track === 'CURVE_TR'
+              ? 0
+              : track === 'CURVE_BR'
+              ? 90
+              : track === 'CURVE_BL'
+              ? 180
+              : 270
+          } 50 50)`}
+        >
+          {/* 5 Radial Sleepers */}
+          <line x1="73.0" y1="7.2" x2="30.5" y2="18.6" stroke={sleeperStroke} strokeWidth="10" strokeLinecap="round" />
+          <line x1="73.0" y1="7.2" x2="30.5" y2="18.6" stroke={sleeperColor} strokeWidth="7" strokeLinecap="round" />
+
+          <line x1="75.8" y1="14.0" x2="37.6" y2="36.0" stroke={sleeperStroke} strokeWidth="10" strokeLinecap="round" />
+          <line x1="75.8" y1="14.0" x2="37.6" y2="36.0" stroke={sleeperColor} strokeWidth="7" strokeLinecap="round" />
+
+          <line x1="80.2" y1="19.8" x2="49.1" y2="50.9" stroke={sleeperStroke} strokeWidth="10" strokeLinecap="round" />
+          <line x1="80.2" y1="19.8" x2="49.1" y2="50.9" stroke={sleeperColor} strokeWidth="7" strokeLinecap="round" />
+
+          <line x1="86.0" y1="24.2" x2="64.0" y2="62.4" stroke={sleeperStroke} strokeWidth="10" strokeLinecap="round" />
+          <line x1="86.0" y1="24.2" x2="64.0" y2="62.4" stroke={sleeperColor} strokeWidth="7" strokeLinecap="round" />
+
+          <line x1="92.8" y1="27.0" x2="81.4" y2="69.5" stroke={sleeperStroke} strokeWidth="10" strokeLinecap="round" />
+          <line x1="92.8" y1="27.0" x2="81.4" y2="69.5" stroke={sleeperColor} strokeWidth="7" strokeLinecap="round" />
+
+          {/* Dual Rails */}
+          <path d="M 36 0 A 64 64 0 0 0 100 64" fill="none" stroke={railColor} strokeWidth="7" strokeLinecap="butt" />
+          <path d="M 64 0 A 36 36 0 0 0 100 36" fill="none" stroke={railColor} strokeWidth="7" strokeLinecap="butt" />
+
+          {/* Rail highlights */}
+          <path d="M 36 0 A 64 64 0 0 0 100 64" fill="none" stroke={baseHighlight} strokeWidth="2.5" strokeOpacity="0.8" strokeLinecap="butt" />
+          <path d="M 64 0 A 36 36 0 0 0 100 36" fill="none" stroke={baseHighlight} strokeWidth="2.5" strokeOpacity="0.8" strokeLinecap="butt" />
+        </g>
+      )}
+
+      {track === 'X' && (
+        <g>
+          <line x1="24" y1="24" x2="76" y2="76" stroke="#ef4444" strokeWidth="9" strokeLinecap="round" />
+          <line x1="76" y1="24" x2="24" y2="76" stroke="#ef4444" strokeWidth="9" strokeLinecap="round" />
+        </g>
+      )}
+    </svg>
+  );
+};
+

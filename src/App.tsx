@@ -14,7 +14,7 @@ import {
 } from './game/types';
 import { generateTrainTrackPuzzle } from './game/generator';
 import { validatePlayerBoard, ValidationResult } from './game/validator';
-import { TrackTile } from './components/TrackTile';
+import { TrackTile, TrackMiniPreview } from './components/TrackTile';
 import { RulesModal } from './components/RulesModal';
 import { AchievementsModal } from './components/AchievementsModal';
 import { ConfettiCanvas } from './components/ConfettiCanvas';
@@ -48,6 +48,7 @@ import {
   Trophy,
   Lightbulb,
   Undo2,
+  RefreshCw,
 } from 'lucide-react';
 
 // 5 Gemstone Palettes - NO Diamond, as requested!
@@ -110,7 +111,8 @@ const NEXT_SIZE: Record<BoardSize, BoardSize> = {
 
 type ToolType =
   | 'cycle'
-  | 'straight'
+  | 'H'
+  | 'V'
   | 'CURVE_TR'
   | 'CURVE_BR'
   | 'CURVE_BL'
@@ -418,17 +420,16 @@ export default function App() {
       'CURVE_TL',
       'X',
     ];
-    const straightTypes: TrackType[] = ['EMPTY', 'H', 'V'];
-
     const curr = board[r][c];
     let next: TrackType = curr;
 
     if (activeTool === 'cycle') {
       const idx = cycleTypes.indexOf(curr);
       next = cycleTypes[(idx + 1) % cycleTypes.length];
-    } else if (activeTool === 'straight') {
-      const idx = straightTypes.indexOf(curr);
-      next = idx === -1 ? 'H' : straightTypes[(idx + 1) % straightTypes.length];
+    } else if (activeTool === 'H') {
+      next = curr === 'H' ? 'EMPTY' : 'H';
+    } else if (activeTool === 'V') {
+      next = curr === 'V' ? 'EMPTY' : 'V';
     } else if (activeTool === 'x') {
       next = curr === 'X' ? 'EMPTY' : 'X';
     } else if (
@@ -808,15 +809,19 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-3 py-3 sm:py-5 flex flex-col gap-3.5">
-        {/* Game Config Bar: Size and Difficulty */}
+        {/* Game Config Bar: Grid Size and Difficulty on the exact same height */}
         <section
-          className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm transition ${
-            isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
+          className={`p-1.5 sm:p-2 rounded-2xl border grid grid-cols-2 gap-2 text-xs shadow-sm transition ${
+            isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
           }`}
         >
           {/* Size Select */}
-          <div className="flex items-center gap-1.5">
-            <label htmlFor="sizeSelect" className="font-semibold text-slate-400">
+          <div
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl border transition ${
+              isDark ? 'bg-slate-800/80 border-slate-700/80' : 'bg-slate-50 border-slate-200'
+            }`}
+          >
+            <label htmlFor="sizeSelect" className="font-semibold text-slate-400 shrink-0">
               Siatka:
             </label>
             <select
@@ -827,21 +832,23 @@ export default function App() {
                 setSize(newSize);
                 startNewGame(newSize, difficulty);
               }}
-              className={`px-2 py-1 rounded-md font-medium border focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer ${
-                isDark
-                  ? 'bg-slate-800 border-slate-700 text-slate-200'
-                  : 'bg-slate-100 border-slate-300 text-slate-800'
+              className={`w-full bg-transparent font-bold focus:outline-none cursor-pointer text-xs text-right pr-1 ${
+                isDark ? 'text-slate-200' : 'text-slate-800'
               }`}
             >
-              <option value={5}>5 × 5 (Kompakt)</option>
-              <option value={6}>6 × 6 (Standard)</option>
-              <option value={8}>8 × 8 (Mistrz)</option>
+              <option value={5} className={isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'}>5 × 5</option>
+              <option value={6} className={isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'}>6 × 6</option>
+              <option value={8} className={isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'}>8 × 8</option>
             </select>
           </div>
 
           {/* Difficulty Select */}
-          <div className="flex items-center gap-1.5">
-            <label htmlFor="diffSelect" className="font-semibold text-slate-400">
+          <div
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl border transition ${
+              isDark ? 'bg-slate-800/80 border-slate-700/80' : 'bg-slate-50 border-slate-200'
+            }`}
+          >
+            <label htmlFor="diffSelect" className="font-semibold text-slate-400 shrink-0">
               Trudność:
             </label>
             <select
@@ -852,139 +859,284 @@ export default function App() {
                 setDifficulty(newDiff);
                 startNewGame(size, newDiff);
               }}
-              className={`px-2 py-1 rounded-md font-medium border focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer ${
-                isDark
-                  ? 'bg-slate-800 border-slate-700 text-slate-200'
-                  : 'bg-slate-100 border-slate-300 text-slate-800'
+              className={`w-full bg-transparent font-bold focus:outline-none cursor-pointer text-xs text-right pr-1 ${
+                isDark ? 'text-slate-200' : 'text-slate-800'
               }`}
             >
-              <option value="easy">🟢 Łatwy</option>
-              <option value="medium">🟡 Średni</option>
-              <option value="hard">🔴 Trudny</option>
-              <option value="very_hard">💜 Bardzo trudny</option>
-              <option value="extreme">☠️ Popierdolony</option>
+              <option value="easy" className={isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'}>🟢 Łatwy</option>
+              <option value="medium" className={isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'}>🟡 Średni</option>
+              <option value="hard" className={isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'}>🔴 Trudny</option>
+              <option value="very_hard" className={isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'}>💜 B. trudny</option>
+              <option value="extreme" className={isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'}>☠️ Popierdolony</option>
             </select>
           </div>
-
-          {/* New Game Button */}
-          <button
-            type="button"
-            onClick={() => startNewGame(size, difficulty)}
-            className="flex items-center gap-1 px-3 py-1 font-semibold rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 transition shadow active:scale-95 ml-auto"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Nowa gra</span>
-          </button>
         </section>
 
-        {/* Stats & Clue Banner */}
-        <section className="flex items-center justify-between gap-2 text-xs font-medium">
-          {/* Timer & Moves */}
-          <div className="flex items-center gap-3">
-            <div
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border ${
-                isDark
-                  ? 'bg-slate-900/60 border-slate-800 text-slate-300'
-                  : 'bg-white border-slate-200 text-slate-700'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5 text-amber-500" />
-              <span>{formatTime(seconds)}</span>
-            </div>
-            <div
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border ${
-                isDark
-                  ? 'bg-slate-900/60 border-slate-800 text-slate-300'
-                  : 'bg-white border-slate-200 text-slate-700'
-              }`}
-            >
-              <Footprints className="w-3.5 h-3.5 text-sky-400" />
-              <span>Ruchy: {moves}</span>
-            </div>
-          </div>
-
-          {/* Action buttons: Cofnij, Wskazówka & Reset */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Undo button */}
-            <button
-              type="button"
-              onClick={handleUndo}
-              disabled={history.length === 0}
-              title="Cofnij ruch (+1 do licznika wykonanych ruchów)"
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border font-semibold transition text-xs shadow-sm active:scale-95 ${
-                history.length === 0
-                  ? 'opacity-40 cursor-not-allowed border-transparent text-slate-500'
-                  : isDark
-                  ? 'bg-slate-900/80 border-slate-700 text-sky-400 hover:bg-slate-800'
-                  : 'bg-white border-slate-300 text-sky-700 hover:bg-slate-100'
-              }`}
-            >
-              <Undo2 className="w-3.5 h-3.5" />
-              <span>Cofnij</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleHint}
-              title="Ujawnij prawidłowy typ toru dla losowej pustej komórki (kara +3 ruchy)"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-semibold transition text-xs shadow-sm active:scale-95 ${
-                isDark
-                  ? 'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
-                  : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
-              }`}
-            >
-              <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
-              <span>Wskazówka <span className="text-[10px] opacity-80 font-normal">(+3)</span></span>
-            </button>
-
-            {/* Reset button */}
-            <button
-              type="button"
-              onClick={handleReset}
-              title="Wyczyść planszę do stanu początkowego"
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition text-xs hover:text-amber-500 active:scale-95 ${
-                isDark
-                  ? 'bg-slate-900/60 border-slate-800 text-slate-400'
-                  : 'bg-white border-slate-200 text-slate-600'
-              }`}
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Resetuj</span>
-            </button>
-          </div>
-        </section>
-
-        {/* Popierdolony or Normal Route Info Banner */}
-        {puzzle && (
+        {/* Unified Game HUD & Route Control Center */}
+        <section
+          className={`rounded-2xl border shadow-md transition-all overflow-hidden ${
+            isDark
+              ? 'bg-slate-900/90 border-slate-800 shadow-black/20'
+              : 'bg-white border-slate-200 shadow-slate-100'
+          }`}
+        >
+          {/* Top Row: Timer, Moves, and 4 Square Action Buttons (Nowa gra, Cofnij, Wskazówka, Reset) */}
           <div
-            className={`px-3 py-2 rounded-xl text-xs flex items-center justify-between border ${
-              difficulty === 'extreme'
-                ? 'bg-rose-950/40 border-rose-800/60 text-rose-300'
-                : isDark
-                ? 'bg-slate-900/40 border-slate-800 text-slate-400'
-                : 'bg-slate-50 border-slate-200 text-slate-600'
+            className={`px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center justify-between gap-2 border-b ${
+              isDark ? 'border-slate-800/80 bg-slate-900/50' : 'border-slate-100 bg-slate-50/70'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-emerald-400 flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping" />
-                Wjazd A:
-              </span>
-              <span>
-                {getEdgePolish(puzzle.startPoint.edge)} (Wiersz {puzzle.startPoint.row + 1}, Kol.{' '}
-                {puzzle.startPoint.col + 1})
-              </span>
+            {/* Left: Stats (Timer + Moves) */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Timer */}
+              <div
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-9 sm:h-10 rounded-xl border font-mono text-xs font-bold shadow-sm ${
+                  isDark
+                    ? 'bg-slate-800/90 border-slate-700/80 text-amber-400'
+                    : 'bg-white border-slate-200 text-amber-600'
+                }`}
+                title="Czas obecnej gry"
+              >
+                <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>{formatTime(seconds)}</span>
+              </div>
+
+              {/* Moves */}
+              <div
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-9 sm:h-10 rounded-xl border text-xs font-semibold shadow-sm ${
+                  isDark
+                    ? 'bg-slate-800/90 border-slate-700/80 text-slate-200'
+                    : 'bg-white border-slate-200 text-slate-700'
+                }`}
+                title={`Liczba wykonanych ruchów: ${moves}`}
+              >
+                <Footprints className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <span>
+                  Ruchy: <strong className="font-bold text-sky-400 font-mono">{moves}</strong>
+                </span>
+              </div>
             </div>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-rose-400">Wyjazd B:</span>
-              <span>
-                {getEdgePolish(puzzle.endPoint.edge)} (Wiersz {puzzle.endPoint.row + 1}, Kol.{' '}
-                {puzzle.endPoint.col + 1})
-              </span>
+
+            {/* Right: 4 Square Action Buttons */}
+            <div className="flex items-center gap-1.5 sm:gap-2 ml-auto">
+              {/* Nowa gra: Square, no icon */}
+              <button
+                type="button"
+                onClick={() => startNewGame(size, difficulty)}
+                title="Nowa gra (rozpocznij nową planszę)"
+                aria-label="Nowa gra"
+                className="aspect-square h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex flex-col items-center justify-center bg-amber-500 hover:bg-amber-400 text-slate-950 font-black leading-none transition shadow-sm active:scale-95 cursor-pointer select-none"
+              >
+                <span className="text-[11px] sm:text-xs">Nowa</span>
+                <span className="text-[9px] opacity-90 -mt-0.5 font-bold">gra</span>
+              </button>
+
+              {/* Undo: Square */}
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={history.length === 0}
+                title="Cofnij ostatni ruch (+1 do licznika)"
+                aria-label="Cofnij ruch"
+                className={`aspect-square h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center border font-semibold transition shadow-sm active:scale-95 cursor-pointer select-none ${
+                  history.length === 0
+                    ? 'opacity-40 cursor-not-allowed border-transparent text-slate-500'
+                    : isDark
+                    ? 'bg-slate-800 border-slate-700 text-sky-300 hover:bg-slate-750'
+                    : 'bg-white border-slate-300 text-sky-700 hover:bg-slate-100'
+                }`}
+              >
+                <Undo2 className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+
+              {/* Hint: Square, no text description, with small +3 badge */}
+              <button
+                type="button"
+                onClick={handleHint}
+                title="Wskazówka: ujawnia i trwale blokuje poprawny tor dla losowego pola (kara +3 ruchy)"
+                aria-label="Wskazówka (+3 ruchy)"
+                className={`relative aspect-square h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center border font-semibold transition shadow-sm active:scale-95 cursor-pointer select-none ${
+                  isDark
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
+                    : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                }`}
+              >
+                <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
+                <span className="absolute -top-1 -right-1 px-1 py-0.2 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black leading-tight shadow-sm">
+                  +3
+                </span>
+              </button>
+
+              {/* Reset: Square, with new unique RefreshCw icon */}
+              <button
+                type="button"
+                onClick={handleReset}
+                title="Wyczyść planszę do stanu początkowego (reset torów)"
+                aria-label="Resetuj planszę"
+                className={`aspect-square h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center border transition active:scale-95 cursor-pointer select-none ${
+                  isDark
+                    ? 'bg-slate-800/80 border-slate-700/80 text-slate-300 hover:text-amber-400 hover:bg-slate-750'
+                    : 'bg-white border-slate-200 text-slate-600 hover:text-amber-600 hover:bg-slate-100'
+                }`}
+              >
+                <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
             </div>
           </div>
-        )}
+
+          {/* Bottom Row: Route (Start A -> Meta B with high-contrast, prominent coordinates) */}
+          {puzzle && (
+            <div
+              className={`p-2 sm:p-2.5 border-t transition-colors ${
+                difficulty === 'extreme'
+                  ? isDark
+                    ? 'bg-rose-950/40 border-rose-900/60'
+                    : 'bg-rose-50/80 border-rose-200'
+                  : isDark
+                  ? 'bg-slate-950/80 border-slate-800'
+                  : 'bg-slate-50 border-slate-200'
+              }`}
+            >
+              {/* Subtle connecting train indicator banner */}
+              <div className="flex items-center justify-center gap-2 mb-1.5 px-2">
+                <span className="h-[2px] flex-1 bg-gradient-to-r from-emerald-500/60 via-amber-500/30 to-transparent rounded-full" />
+                <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-400 select-none">
+                  <Train className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                  <span>Trasa Kolejowa</span>
+                  <ArrowRight className="w-3 h-3 text-slate-400" />
+                </div>
+                <span className="h-[2px] flex-1 bg-gradient-to-l from-rose-500/60 via-amber-500/30 to-transparent rounded-full" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+                {/* Start A Card */}
+                <div
+                  className={`p-2 sm:p-2.5 rounded-xl border flex items-center gap-2 sm:gap-2.5 transition shadow-sm ${
+                    isDark
+                      ? 'bg-slate-900/90 border-emerald-500/40 text-slate-100'
+                      : 'bg-white border-emerald-300 text-slate-900'
+                  }`}
+                  title={`Start A: krawędź ${getEdgePolish(puzzle.startPoint.edge)}, wiersz ${puzzle.startPoint.row + 1}, kolumna ${puzzle.startPoint.col + 1}`}
+                >
+                  <div className="relative flex items-center justify-center shrink-0">
+                    <span className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs sm:text-sm shadow-md ring-2 ring-emerald-400/40">
+                      A
+                    </span>
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1 leading-tight">
+                      <span
+                        className={`text-[11px] sm:text-xs font-black uppercase tracking-wider ${
+                          isDark ? 'text-emerald-400' : 'text-emerald-700'
+                        }`}
+                      >
+                        START
+                      </span>
+                      <span
+                        className={`text-[10px] sm:text-[11px] font-extrabold px-1.5 py-0.5 rounded border ${
+                          isDark
+                            ? 'bg-emerald-950/80 border-emerald-800 text-emerald-300'
+                            : 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                        }`}
+                      >
+                        {getEdgePolish(puzzle.startPoint.edge)}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs sm:text-sm font-bold leading-tight">
+                      <span className="flex items-center gap-1">
+                        <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>Wiersz:</span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded font-black text-xs sm:text-sm ${
+                            isDark
+                              ? 'bg-emerald-500/25 text-emerald-300 ring-1 ring-emerald-500/40'
+                              : 'bg-emerald-100 text-emerald-950 ring-1 ring-emerald-300'
+                          }`}
+                        >
+                          {puzzle.startPoint.row + 1}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>Kolumna:</span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded font-black text-xs sm:text-sm ${
+                            isDark
+                              ? 'bg-emerald-500/25 text-emerald-300 ring-1 ring-emerald-500/40'
+                              : 'bg-emerald-100 text-emerald-950 ring-1 ring-emerald-300'
+                          }`}
+                        >
+                          {puzzle.startPoint.col + 1}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Meta B Card */}
+                <div
+                  className={`p-2 sm:p-2.5 rounded-xl border flex items-center gap-2 sm:gap-2.5 transition shadow-sm ${
+                    isDark
+                      ? 'bg-slate-900/90 border-rose-500/40 text-slate-100'
+                      : 'bg-white border-rose-300 text-slate-900'
+                  }`}
+                  title={`Meta B: krawędź ${getEdgePolish(puzzle.endPoint.edge)}, wiersz ${puzzle.endPoint.row + 1}, kolumna ${puzzle.endPoint.col + 1}`}
+                >
+                  <div className="relative flex items-center justify-center shrink-0">
+                    <span className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-rose-500 text-white font-black text-xs sm:text-sm shadow-md ring-2 ring-rose-400/40">
+                      B
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1 leading-tight">
+                      <span
+                        className={`text-[11px] sm:text-xs font-black uppercase tracking-wider ${
+                          isDark ? 'text-rose-400' : 'text-rose-700'
+                        }`}
+                      >
+                        META
+                      </span>
+                      <span
+                        className={`text-[10px] sm:text-[11px] font-extrabold px-1.5 py-0.5 rounded border ${
+                          isDark
+                            ? 'bg-rose-950/80 border-rose-800 text-rose-300'
+                            : 'bg-rose-50 border-rose-300 text-rose-800'
+                        }`}
+                      >
+                        {getEdgePolish(puzzle.endPoint.edge)}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs sm:text-sm font-bold leading-tight">
+                      <span className="flex items-center gap-1">
+                        <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>Wiersz:</span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded font-black text-xs sm:text-sm ${
+                            isDark
+                              ? 'bg-rose-500/25 text-rose-300 ring-1 ring-rose-500/40'
+                              : 'bg-rose-100 text-rose-950 ring-1 ring-rose-300'
+                          }`}
+                        >
+                          {puzzle.endPoint.row + 1}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>Kolumna:</span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded font-black text-xs sm:text-sm ${
+                            isDark
+                              ? 'bg-rose-500/25 text-rose-300 ring-1 ring-rose-500/40'
+                              : 'bg-rose-100 text-rose-950 ring-1 ring-rose-300'
+                          }`}
+                        >
+                          {puzzle.endPoint.col + 1}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* The Grid Board */}
         {puzzle && (
@@ -1145,8 +1297,8 @@ export default function App() {
             </span>
           </div>
 
-          {/* Tools Grid */}
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+          {/* Tools Grid (9 dedicated tools: Cycle, Horizontal, Vertical, 4 Curves, X, Eraser) */}
+          <div className="grid grid-cols-9 gap-1 sm:gap-1.5">
             {/* Cycle mode */}
             <button
               type="button"
@@ -1154,114 +1306,145 @@ export default function App() {
                 soundManager.playClick();
                 setActiveTool('cycle');
               }}
+              title="Tryb cykliczny: kliknięcie w kafelek przełącza kolejno rodzaje torów"
               aria-label="Narzędzie cykliczne"
-              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-bold border transition active:scale-95 ${
+              className={`flex flex-col items-center justify-center py-1.5 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-bold border transition active:scale-95 cursor-pointer select-none ${
                 activeTool === 'cycle'
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm ring-1 ring-amber-300'
                   : isDark
                   ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
                   : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <RotateCcw className="w-4 h-4 mb-0.5" />
-              <span>Cykl</span>
+              <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 shrink-0" />
+              <span className="tracking-tighter sm:tracking-normal truncate">Cykl</span>
             </button>
 
-            {/* Straight tracks */}
+            {/* Horizontal Track Tool */}
             <button
               type="button"
               onClick={() => {
                 soundManager.playClick();
-                setActiveTool('straight');
+                setActiveTool('H');
               }}
-              aria-label="Narzędzie proste tory"
-              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-bold border transition active:scale-95 ${
-                activeTool === 'straight'
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
+              title="Pozioma linia torów (━): kliknij pole, aby wstawić prosty tor poziomy"
+              aria-label="Pozioma linia torów"
+              className={`flex flex-col items-center justify-center py-1.5 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-bold border transition active:scale-95 cursor-pointer select-none ${
+                activeTool === 'H'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm ring-1 ring-amber-300'
                   : isDark
                   ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
                   : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <span className="text-sm font-black leading-none mb-0.5">━ ┃</span>
-              <span>Proste</span>
+              <TrackMiniPreview track="H" gemPalette={activePalette} className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5" />
+              <span className="tracking-tighter sm:tracking-normal truncate">Poziom</span>
             </button>
 
-            {/* 4 Dedicated Curve Tools */}
+            {/* Vertical Track Tool */}
+            <button
+              type="button"
+              onClick={() => {
+                soundManager.playClick();
+                setActiveTool('V');
+              }}
+              title="Pionowa linia torów (┃): kliknij pole, aby wstawić prosty tor pionowy"
+              aria-label="Pionowa linia kolejowa"
+              className={`flex flex-col items-center justify-center py-1.5 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-bold border transition active:scale-95 cursor-pointer select-none ${
+                activeTool === 'V'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm ring-1 ring-amber-300'
+                  : isDark
+                  ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
+                  : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <TrackMiniPreview track="V" gemPalette={activePalette} className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5" />
+              <span className="tracking-tighter sm:tracking-normal truncate">Pion</span>
+            </button>
+
+            {/* 4 Dedicated Curve Tools with Realistic Miniature Previews */}
+            {/* Top-Right Curve */}
             <button
               type="button"
               onClick={() => {
                 soundManager.playClick();
                 setActiveTool('CURVE_TR');
               }}
+              title="Zakręt Góra-Prawo (łączy górną i prawą krawędź)"
               aria-label="Zakręt Góra-Prawo"
-              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-bold border transition active:scale-95 ${
+              className={`flex flex-col items-center justify-center py-1.5 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-bold border transition active:scale-95 cursor-pointer select-none ${
                 activeTool === 'CURVE_TR'
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm ring-1 ring-amber-300'
                   : isDark
                   ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
                   : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <span className="text-base font-black leading-none mb-0.5">↗</span>
-              <span>G-P</span>
+              <TrackMiniPreview track="CURVE_TR" gemPalette={activePalette} className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5" />
+              <span className="tracking-tighter sm:tracking-normal truncate">G-P</span>
             </button>
 
+            {/* Bottom-Right Curve */}
             <button
               type="button"
               onClick={() => {
                 soundManager.playClick();
                 setActiveTool('CURVE_BR');
               }}
+              title="Zakręt Prawo-Dół (łączy prawą i dolną krawędź)"
               aria-label="Zakręt Prawo-Dół"
-              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-bold border transition active:scale-95 ${
+              className={`flex flex-col items-center justify-center py-1.5 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-bold border transition active:scale-95 cursor-pointer select-none ${
                 activeTool === 'CURVE_BR'
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm ring-1 ring-amber-300'
                   : isDark
                   ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
                   : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <span className="text-base font-black leading-none mb-0.5">↘</span>
-              <span>P-D</span>
+              <TrackMiniPreview track="CURVE_BR" gemPalette={activePalette} className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5" />
+              <span className="tracking-tighter sm:tracking-normal truncate">P-D</span>
             </button>
 
+            {/* Bottom-Left Curve */}
             <button
               type="button"
               onClick={() => {
                 soundManager.playClick();
                 setActiveTool('CURVE_BL');
               }}
+              title="Zakręt Dół-Lewo (łączy dolną i lewą krawędź)"
               aria-label="Zakręt Dół-Lewo"
-              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-bold border transition active:scale-95 ${
+              className={`flex flex-col items-center justify-center py-1.5 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-bold border transition active:scale-95 cursor-pointer select-none ${
                 activeTool === 'CURVE_BL'
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm ring-1 ring-amber-300'
                   : isDark
                   ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
                   : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <span className="text-base font-black leading-none mb-0.5">↙</span>
-              <span>D-L</span>
+              <TrackMiniPreview track="CURVE_BL" gemPalette={activePalette} className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5" />
+              <span className="tracking-tighter sm:tracking-normal truncate">D-L</span>
             </button>
 
+            {/* Top-Left Curve */}
             <button
               type="button"
               onClick={() => {
                 soundManager.playClick();
                 setActiveTool('CURVE_TL');
               }}
+              title="Zakręt Góra-Lewo (łączy górną i lewą krawędź)"
               aria-label="Zakręt Góra-Lewo"
-              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-bold border transition active:scale-95 ${
+              className={`flex flex-col items-center justify-center py-1.5 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-bold border transition active:scale-95 cursor-pointer select-none ${
                 activeTool === 'CURVE_TL'
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm ring-1 ring-amber-300'
                   : isDark
                   ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
                   : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <span className="text-base font-black leading-none mb-0.5">↖</span>
-              <span>G-L</span>
+              <TrackMiniPreview track="CURVE_TL" gemPalette={activePalette} className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5" />
+              <span className="tracking-tighter sm:tracking-normal truncate">G-L</span>
             </button>
 
             {/* X Cross Tool */}
@@ -1271,17 +1454,18 @@ export default function App() {
                 soundManager.playClick();
                 setActiveTool('x');
               }}
+              title="Brak torów (X): oznacz pole jako puste"
               aria-label="Narzędzie krzyżyk X"
-              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-bold border transition active:scale-95 ${
+              className={`flex flex-col items-center justify-center py-1.5 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-bold border transition active:scale-95 cursor-pointer select-none ${
                 activeTool === 'x'
-                  ? 'bg-rose-500 text-white border-rose-400 shadow-sm'
+                  ? 'bg-rose-500 text-white border-rose-400 shadow-sm ring-1 ring-rose-300'
                   : isDark
                   ? 'bg-slate-800 border-slate-700 text-rose-400 hover:bg-slate-750'
                   : 'bg-slate-100 border-slate-300 text-rose-600 hover:bg-slate-200'
               }`}
             >
-              <XIcon className="w-4 h-4 mb-0.5" />
-              <span>X (Brak)</span>
+              <XIcon className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 shrink-0" />
+              <span className="tracking-tighter sm:tracking-normal truncate">Brak</span>
             </button>
 
             {/* Eraser Tool */}
@@ -1291,17 +1475,18 @@ export default function App() {
                 soundManager.playClick();
                 setActiveTool('erase');
               }}
+              title="Gumka: kliknij pojedyncze pole lub przeciągnij palcem po kilku kafelkach"
               aria-label="Narzędzie gumka"
-              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-bold border transition active:scale-95 ${
+              className={`flex flex-col items-center justify-center py-1.5 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-bold border transition active:scale-95 cursor-pointer select-none ${
                 activeTool === 'erase'
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm ring-1 ring-amber-300'
                   : isDark
                   ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
                   : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <Eraser className="w-4 h-4 mb-0.5" />
-              <span>Gumka</span>
+              <Eraser className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 shrink-0" />
+              <span className="tracking-tighter sm:tracking-normal truncate">Gumka</span>
             </button>
           </div>
 

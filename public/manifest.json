@@ -1,0 +1,33 @@
+{
+  "name": "Train Tracks - Gra Logiczna Tory Kolejowe",
+  "short_name": "ToryKolejowe",
+  "description": "Polska gra logiczna Train Tracks PWA z proceduralnym generatorem tras i pełną obsługą offline.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "pl",
+  "scope": "/",
+  "id": "/",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
