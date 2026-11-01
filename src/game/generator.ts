@@ -49,18 +49,26 @@ function getBorderEdgesForCell(r: number, c: number, size: number): BorderEdge[]
 /**
  * Procedurally generates a solvable, single non-branching train track puzzle
  */
-export function generateTrainTrackPuzzle(size: BoardSize, difficulty: Difficulty): Puzzle {
+export function generateTrainTrackPuzzle(
+  size: BoardSize,
+  difficulty: Difficulty,
+  rng: () => number = Math.random
+): Puzzle {
   let attempt = 0;
   while (attempt < 500) {
     attempt++;
-    const puzzle = tryGeneratePath(size, difficulty);
+    const puzzle = tryGeneratePath(size, difficulty, rng);
     if (puzzle) return puzzle;
   }
   // Fallback default valid path if RNG fails
   return createFallbackPuzzle(size, difficulty);
 }
 
-function tryGeneratePath(size: number, difficulty: Difficulty): Puzzle | null {
+function tryGeneratePath(
+  size: number,
+  difficulty: Difficulty,
+  rng: () => number = Math.random
+): Puzzle | null {
   // Determine min and max target track length based on difficulty and size
   let minLength = size + 2;
   let maxTarget = Math.floor(size * size * 0.55);
@@ -84,7 +92,7 @@ function tryGeneratePath(size: number, difficulty: Difficulty): Puzzle | null {
     }
   }
 
-  const startCandidate = borderCells[Math.floor(Math.random() * borderCells.length)];
+  const startCandidate = borderCells[Math.floor(rng() * borderCells.length)];
   const startPoint: Endpoint = {
     row: startCandidate.r,
     col: startCandidate.c,
@@ -107,8 +115,8 @@ function tryGeneratePath(size: number, difficulty: Difficulty): Puzzle | null {
         return true;
       });
 
-      if (possibleExits.length > 0 && (path.length >= maxTarget || Math.random() < 0.25)) {
-        const exitEdge = possibleExits[Math.floor(Math.random() * possibleExits.length)];
+      if (possibleExits.length > 0 && (path.length >= maxTarget || rng() < 0.25)) {
+        const exitEdge = possibleExits[Math.floor(rng() * possibleExits.length)];
         return { r: currR, c: currC, edge: exitEdge };
       }
     }
@@ -117,8 +125,8 @@ function tryGeneratePath(size: number, difficulty: Difficulty): Puzzle | null {
       return null;
     }
 
-    // Shuffle neighbor directions
-    const dirKeys: BorderEdge[] = (['TOP', 'RIGHT', 'BOTTOM', 'LEFT'] as BorderEdge[]).sort(() => Math.random() - 0.5);
+    // Shuffle neighbor directions using rng()
+    const dirKeys: BorderEdge[] = (['TOP', 'RIGHT', 'BOTTOM', 'LEFT'] as BorderEdge[]).sort(() => rng() - 0.5);
 
     for (const d of dirKeys) {
       const nr = currR + DIRS[d].dr;
@@ -216,7 +224,7 @@ function tryGeneratePath(size: number, difficulty: Difficulty): Puzzle | null {
     for (let i = 1; i < path.length - 1; i++) {
       candidateIndices.push(i);
     }
-    candidateIndices.sort(() => Math.random() - 0.5);
+    candidateIndices.sort(() => rng() - 0.5);
 
     const extraCluesCount = Math.max(1, Math.floor(path.length * 0.2));
     for (let k = 0; k < Math.min(extraCluesCount, candidateIndices.length); k++) {
@@ -251,7 +259,7 @@ function tryGeneratePath(size: number, difficulty: Difficulty): Puzzle | null {
 
     // Reveal exactly 1 extra clue track piece
     if (path.length > 2) {
-      const midIdx = Math.floor(1 + Math.random() * (path.length - 2));
+      const midIdx = Math.floor(1 + rng() * (path.length - 2));
       const p = path[midIdx];
       initialBoard[p.r][p.c] = solution[p.r][p.c];
       fixedCells[p.r][p.c] = true;
@@ -278,7 +286,7 @@ function tryGeneratePath(size: number, difficulty: Difficulty): Puzzle | null {
       allClueIndices.push({ isRow: true, idx: i });
       allClueIndices.push({ isRow: false, idx: i });
     }
-    allClueIndices.sort(() => Math.random() - 0.5);
+    allClueIndices.sort(() => rng() - 0.5);
     for (let k = 0; k < hideCount; k++) {
       const item = allClueIndices[k];
       if (item.isRow) hiddenRowClues[item.idx] = true;
@@ -295,7 +303,7 @@ function tryGeneratePath(size: number, difficulty: Difficulty): Puzzle | null {
       allClueIndices.push({ isRow: true, idx: i });
       allClueIndices.push({ isRow: false, idx: i });
     }
-    allClueIndices.sort(() => Math.random() - 0.5);
+    allClueIndices.sort(() => rng() - 0.5);
     for (let k = 0; k < hideCount; k++) {
       const item = allClueIndices[k];
       if (item.isRow) hiddenRowClues[item.idx] = true;
@@ -315,6 +323,7 @@ function tryGeneratePath(size: number, difficulty: Difficulty): Puzzle | null {
     endPoint,
     initialBoard,
     fixedCells,
+    solutionPath: path.map(p => ({ r: p.r, c: p.c })),
   };
 }
 
@@ -350,6 +359,15 @@ function createFallbackPuzzle(size: number, difficulty: Difficulty): Puzzle {
   initialBoard[size - 1][0] = 'CURVE_TR';
   fixedCells[size - 1][0] = true;
 
+  const fallbackPath: { r: number; c: number }[] = [];
+  fallbackPath.push({ r: 0, c: 0 });
+  for (let c = 1; c < size - 1; c++) fallbackPath.push({ r: 0, c });
+  fallbackPath.push({ r: 0, c: size - 1 });
+  for (let r = 1; r < size - 1; r++) fallbackPath.push({ r, c: size - 1 });
+  fallbackPath.push({ r: size - 1, c: size - 1 });
+  for (let c = size - 2; c >= 1; c--) fallbackPath.push({ r: size - 1, c });
+  fallbackPath.push({ r: size - 1, c: 0 });
+
   return {
     size: size as BoardSize,
     difficulty,
@@ -362,5 +380,61 @@ function createFallbackPuzzle(size: number, difficulty: Difficulty): Puzzle {
     endPoint,
     initialBoard,
     fixedCells,
+    solutionPath: fallbackPath,
   };
+}
+
+/**
+ * 32-bit FNV-1a mathematical hash for date strings
+ * Injective and uniformly distributed across days
+ */
+export function hashDateStringToSeed(dateStr: string): number {
+  let hash = 2166136261;
+  const salt = 'ETERNAL_TRAIN_TRACKS_DAILY_KEY_v2_';
+  const str = salt + dateStr;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * Mulberry32 PRNG - fast, high quality 32-bit pseudo-random number generator
+ */
+export function createSeededRNG(seed: number): () => number {
+  let s = seed >>> 0;
+  return function () {
+    s |= 0;
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Deterministic difficulty and grid size configuration for any calendar date
+ */
+export function getDailyConfig(dateStr: string): { size: BoardSize; difficulty: Difficulty } {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const day = date.getDay(); // 0 = Niedziela, 1 = Poniedziałek...
+  if (day === 0) return { size: 8, difficulty: 'extreme' }; // Niedzielne Królewskie Wyzwanie
+  if (day === 5 || day === 6) return { size: 8, difficulty: 'very_hard' }; // Weekendowe 8x8
+  if (day === 3 || day === 4) return { size: 6, difficulty: 'hard' }; // Środa/Czwartek 6x6 Hard
+  return { size: 6, difficulty: 'medium' }; // Pon/Wtorek 6x6 Medium
+}
+
+/**
+ * Generates an eternal, never-repeating daily challenge puzzle for any date YYYY-MM-DD
+ */
+export function generateDailyPuzzle(dateStr: string): Puzzle {
+  const seed = hashDateStringToSeed(dateStr);
+  const rng = createSeededRNG(seed);
+  const config = getDailyConfig(dateStr);
+  const puzzle = generateTrainTrackPuzzle(config.size, config.difficulty, rng);
+  puzzle.isDaily = true;
+  puzzle.dailyDate = dateStr;
+  return puzzle;
 }

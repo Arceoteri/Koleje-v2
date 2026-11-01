@@ -245,6 +245,80 @@ class SoundManager {
       // Audio error safety
     }
   }
+
+  /**
+   * Authentic dual-tone steam locomotive whistle
+   */
+  public playTrainWhistle() {
+    if (this.isMuted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      // Classic dual-chime railroad chord (D5 ~587Hz and F#5 ~740Hz)
+      const freqs = [587.3, 739.9];
+      freqs.forEach(f => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(f, now);
+        // Subtle steam pitch flutter
+        osc.frequency.linearRampToValueAtTime(f * 1.02, now + 0.25);
+        osc.frequency.linearRampToValueAtTime(f * 0.99, now + 0.6);
+
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.14, now + 0.08);
+        gain.gain.setValueAtTime(0.14, now + 0.5);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.9);
+      });
+    } catch {
+      // Audio safety
+    }
+  }
+
+  /**
+   * Piston steam chug / railway wheel clack
+   */
+  public playTrainChug() {
+    if (this.isMuted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(95, now);
+      osc.frequency.exponentialRampToValueAtTime(45, now + 0.07);
+
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+      // Low pass filter for deep locomotive piston rumble
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(320, now);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } catch {
+      // Audio safety
+    }
+  }
 }
 
 export const soundManager = new SoundManager();

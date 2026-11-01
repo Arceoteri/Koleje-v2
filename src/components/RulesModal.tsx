@@ -148,13 +148,13 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, isDark 
             </div>
           </section>
 
-          {/* Narzędzia w dolnym pasku */}
+          {/* Kafelki torów */}
           <section className="space-y-2 pt-2 border-t border-slate-800">
             <h3 className="font-semibold text-base flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" /> Narzędzia wprowadzania torów
+              <AlertTriangle className="w-4 h-4 text-amber-400" /> Kafelki torów i wprowadzanie
             </h3>
             <p className="text-slate-300 text-xs">
-              Wybierz tryb z dolnego paska, a następnie dotknij pola na planszy:
+              Wybierz kafelek z dolnego paska, a następnie dotknij pola na planszy:
             </p>
             <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
               <div className="p-2 rounded bg-slate-800/40 border border-slate-700">

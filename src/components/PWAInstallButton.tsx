@@ -64,12 +64,12 @@ export const PWAInstallButton: React.FC = () => {
               setShowModal(true);
             }
           }}
-          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md hover:from-amber-400 hover:to-amber-500 transition-all active:scale-95 cursor-pointer"
+          className="flex items-center justify-center gap-1.5 p-1.5 sm:px-3 sm:py-1.5 text-xs sm:text-sm font-semibold rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md hover:from-amber-400 hover:to-amber-500 transition-all active:scale-95 cursor-pointer shrink-0"
           title="Pobierz i zainstaluj grę na telefonie (Android lub iOS) i graj bez internetu"
+          aria-label="Pobierz grę"
         >
-          <Download className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
-          <span className="hidden sm:inline">Pobierz grę</span>
-          <span className="sm:hidden">Pobierz</span>
+          <Download className="w-4 h-4 shrink-0" />
+          <span className="hidden sm:inline">Pobierz</span>
         </button>
 
         {isInstalled && (

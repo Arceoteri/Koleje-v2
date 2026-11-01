@@ -44,4 +44,9 @@ export interface Puzzle {
   endPoint: Endpoint;
   initialBoard: TrackType[][]; // pre-revealed tracks and auto-Xs
   fixedCells: boolean[][]; // cells that cannot be changed by the player
+  solutionPath: { r: number; c: number }[]; // Ordered coordinates of the solution route from start to end
+  isDaily?: boolean;
+  dailyDate?: string;
+  isCampaign?: boolean;
+  campaignLevelId?: number;
 }

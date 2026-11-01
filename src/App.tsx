@@ -6,21 +6,39 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   BoardSize,
+  BorderEdge,
   Difficulty,
   GemPalette,
   GemPaletteId,
   Puzzle,
   TrackType,
 } from './game/types';
-import { generateTrainTrackPuzzle } from './game/generator';
+import {
+  generateTrainTrackPuzzle,
+  generateDailyPuzzle,
+  getTrackForDirections,
+} from './game/generator';
 import { validatePlayerBoard, ValidationResult } from './game/validator';
 import { TrackTile, TrackMiniPreview } from './components/TrackTile';
 import { RulesModal } from './components/RulesModal';
 import { AchievementsModal } from './components/AchievementsModal';
 import { ConfettiCanvas } from './components/ConfettiCanvas';
-import { VictoryModal } from './components/VictoryModal';
+import { VictoryModal, CampaignVictoryInfo } from './components/VictoryModal';
 import { PWAInstallButton } from './components/PWAInstallButton';
+import { DailyChallengeModal, DailyRecord } from './components/DailyChallengeModal';
+import { CampaignModal } from './components/CampaignModal';
+import { AnimatedTrainRide } from './components/AnimatedTrainRide';
 import { soundManager } from './utils/audio';
+import { hapticManager } from './utils/haptics';
+import {
+  loadCampaignData,
+  saveCampaignData,
+  calculateTotalStars,
+  getCampaignLevel,
+  generateCampaignPuzzle,
+  CampaignSaveData,
+} from './game/campaignData';
+import { LocomotiveSkinId } from './game/skins';
 import {
   ACHIEVEMENTS_LIST,
   saveUnlockedAchievement,
@@ -49,6 +67,8 @@ import {
   Lightbulb,
   Undo2,
   RefreshCw,
+  Calendar as CalendarIcon,
+  Compass,
 } from 'lucide-react';
 
 // 5 Gemstone Palettes - NO Diamond, as requested!
@@ -125,8 +145,24 @@ export default function App() {
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [paletteIndex, setPaletteIndex] = useState<number>(0);
   const [isDark, setIsDark] = useState<boolean>(true);
-  const [showRules, setShowRules] = useState<boolean>(false);
   const [showAchievements, setShowAchievements] = useState<boolean>(false);
+  const [showRules, setShowRules] = useState<boolean>(() => {
+    try {
+      const hasSeen = localStorage.getItem('tory_has_seen_rules_v1');
+      return !hasSeen; // Automatically show on first launch!
+    } catch {
+      return false;
+    }
+  });
+
+  const handleCloseRules = () => {
+    try {
+      localStorage.setItem('tory_has_seen_rules_v1', 'true');
+    } catch {
+      // Ignore
+    }
+    setShowRules(false);
+  };
   const [isMuted, setIsMuted] = useState<boolean>(() => soundManager.getMuted());
   const [toastAchievement, setToastAchievement] = useState<string | null>(null);
   const [hintedCell, setHintedCell] = useState<{ r: number; c: number } | null>(null);
@@ -148,9 +184,59 @@ export default function App() {
   const [board, setBoard] = useState<TrackType[][]>([]);
   const [activeTool, setActiveTool] = useState<ToolType>('cycle');
 
+  const [showDailyModal, setShowDailyModal] = useState<boolean>(false);
+  const [dailyRecords, setDailyRecords] = useState<Record<string, DailyRecord>>(() => {
+    try {
+      const raw = localStorage.getItem('train_tracks_daily_v1');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [showCampaignModal, setShowCampaignModal] = useState<boolean>(false);
+  const [campaignData, setCampaignData] = useState<CampaignSaveData>(() => loadCampaignData());
+  const [campaignVictoryInfo, setCampaignVictoryInfo] = useState<CampaignVictoryInfo | null>(null);
+
+  const [isTrainRiding, setIsTrainRiding] = useState<boolean>(false);
+
+  const isDraggingTrackRef = useRef<boolean>(false);
+  const dragLastCellRef = useRef<{ r: number; c: number; entryEdge?: BorderEdge } | null>(null);
+
+  const todayStr = React.useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  const isTodayCompleted = !!dailyRecords[todayStr]?.completed;
+
   const [moves, setMoves] = useState<number>(0);
   const [seconds, setSeconds] = useState<number>(0);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
+
+  // Dynamic row and column live counts for live auto-cross / satisfied / overflow feedback
+  const placedInRow = React.useMemo(() => {
+    if (!puzzle) return [];
+    return Array.from({ length: puzzle.size }).map((_, r) => {
+      return board[r]?.filter(t => t !== 'EMPTY' && t !== 'X').length || 0;
+    });
+  }, [board, puzzle]);
+
+  const placedInCol = React.useMemo(() => {
+    if (!puzzle) return [];
+    return Array.from({ length: puzzle.size }).map((_, c) => {
+      let count = 0;
+      for (let r = 0; r < puzzle.size; r++) {
+        if (board[r]?.[c] !== 'EMPTY' && board[r]?.[c] !== 'X') {
+          count++;
+        }
+      }
+      return count;
+    });
+  }, [board, puzzle]);
 
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const hasCheckedWithError = useRef<boolean>(false);
@@ -203,6 +289,71 @@ export default function App() {
     [size, difficulty]
   );
 
+  // Start specific daily challenge game
+  const handleStartDaily = useCallback((dateStr: string) => {
+    soundManager.playClick();
+    hapticManager.medium();
+    const dailyPuzzle = generateDailyPuzzle(dateStr);
+    setSize(dailyPuzzle.size);
+    setDifficulty(dailyPuzzle.difficulty);
+    setPuzzle(dailyPuzzle);
+    setBoard(dailyPuzzle.initialBoard.map(row => [...row]));
+    setMoves(0);
+    setSeconds(0);
+    setIsTimerRunning(true);
+    setValidation(null);
+    setHintedCell(null);
+    setHintToast(null);
+    setShowConfetti(false);
+    setShowVictoryModal(false);
+    setLockedHintKeys(new Set());
+    setHistory([]);
+    setErasingSelection(new Set());
+    setIsDraggingEraser(false);
+    isDraggingTrackRef.current = false;
+    dragLastCellRef.current = null;
+    setHintsUsedCount(0);
+    hasCheckedWithError.current = false;
+  }, []);
+
+  // Start specific campaign station level
+  const handleStartCampaignLevel = useCallback((levelId: number) => {
+    soundManager.playClick();
+    soundManager.playTrainWhistle();
+    hapticManager.medium();
+    const campaignPuzzle = generateCampaignPuzzle(levelId);
+    setSize(campaignPuzzle.size);
+    setDifficulty(campaignPuzzle.difficulty);
+    setPuzzle(campaignPuzzle);
+    setBoard(campaignPuzzle.initialBoard.map(row => [...row]));
+    setMoves(0);
+    setSeconds(0);
+    setIsTimerRunning(true);
+    setValidation(null);
+    setHintedCell(null);
+    setHintToast(null);
+    setShowConfetti(false);
+    setShowVictoryModal(false);
+    setCampaignVictoryInfo(null);
+    setLockedHintKeys(new Set());
+    setHistory([]);
+    setErasingSelection(new Set());
+    setIsDraggingEraser(false);
+    isDraggingTrackRef.current = false;
+    dragLastCellRef.current = null;
+    setHintsUsedCount(0);
+    hasCheckedWithError.current = false;
+  }, []);
+
+  // Update selected locomotive skin
+  const handleSelectSkin = useCallback((skinId: LocomotiveSkinId) => {
+    setCampaignData(prev => {
+      const next: CampaignSaveData = { ...prev, selectedSkin: skinId };
+      saveCampaignData(next);
+      return next;
+    });
+  }, []);
+
   // Initialize on mount
   useEffect(() => {
     startNewGame(size, difficulty);
@@ -221,12 +372,14 @@ export default function App() {
     };
   }, [isTimerRunning]);
 
-  // Window pointerup listener to commit drag eraser safely anywhere
+  // Window pointerup listener to commit drag eraser & track drag safely anywhere
   useEffect(() => {
     const handleGlobalPointerUp = () => {
       if (isDraggingEraser) {
         commitDragErase();
       }
+      isDraggingTrackRef.current = false;
+      dragLastCellRef.current = null;
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
         longPressTimerRef.current = null;
@@ -298,7 +451,7 @@ export default function App() {
     }
   };
 
-  // Long press start handler
+  // Long press start handler & smart path drag initiation
   const handlePointerDown = (r: number, c: number, e: React.PointerEvent) => {
     if (!puzzle) return;
     const key = `${r},${c}`;
@@ -308,6 +461,12 @@ export default function App() {
       setIsDraggingEraser(true);
       setErasingSelection(new Set([key]));
       return;
+    }
+
+    // Initiate smart path dragging if using cycle or track tools
+    if (activeTool !== 'x') {
+      isDraggingTrackRef.current = true;
+      dragLastCellRef.current = { r, c };
     }
 
     // Long press start timer (~480ms)
@@ -323,9 +482,7 @@ export default function App() {
         setBoard(newBoard);
         setMoves(m => m + 1);
         soundManager.playEraseOrX();
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          navigator.vibrate(45);
-        }
+        hapticManager.light();
         if (validation && !validation.isValid) {
           setValidation(null);
         }
@@ -348,36 +505,118 @@ export default function App() {
     }
   };
 
-  // Pointer up/cancel clears long press timer
+  // Pointer up/cancel clears drag & long press timers
   const handlePointerUpOrCancel = () => {
+    isDraggingTrackRef.current = false;
+    dragLastCellRef.current = null;
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
   };
 
-  // Touch move hit-tester for drag erase across mobile touchscreens (Android & iOS Safari)
+  // Smart path step when dragging across adjacent cells
+  const handleSmartPathStep = (r1: number, c1: number, r2: number, c2: number) => {
+    if (!puzzle) return;
+    const dr = r2 - r1;
+    const dc = c2 - c1;
+
+    let exitEdge: BorderEdge;
+    let entryEdge: BorderEdge;
+
+    if (dr === 1) {
+      exitEdge = 'BOTTOM';
+      entryEdge = 'TOP';
+    } else if (dr === -1) {
+      exitEdge = 'TOP';
+      entryEdge = 'BOTTOM';
+    } else if (dc === 1) {
+      exitEdge = 'RIGHT';
+      entryEdge = 'LEFT';
+    } else {
+      exitEdge = 'LEFT';
+      entryEdge = 'RIGHT';
+    }
+
+    const newBoard = board.map(row => [...row]);
+    let modified = false;
+
+    // Update previous cell if not fixed or hint-locked
+    const key1 = `${r1},${c1}`;
+    if (!puzzle.fixedCells[r1][c1] && !lockedHintKeys.has(key1)) {
+      const prevEntry = dragLastCellRef.current?.entryEdge;
+      let piece1: TrackType;
+      if (prevEntry) {
+        piece1 = getTrackForDirections(prevEntry, exitEdge);
+      } else {
+        piece1 = exitEdge === 'RIGHT' || exitEdge === 'LEFT' ? 'H' : 'V';
+      }
+      if (newBoard[r1][c1] !== piece1) {
+        newBoard[r1][c1] = piece1;
+        modified = true;
+      }
+    }
+
+    // Update next cell
+    const key2 = `${r2},${c2}`;
+    if (!puzzle.fixedCells[r2][c2] && !lockedHintKeys.has(key2)) {
+      const piece2: TrackType = exitEdge === 'RIGHT' || exitEdge === 'LEFT' ? 'H' : 'V';
+      if (newBoard[r2][c2] !== piece2) {
+        newBoard[r2][c2] = piece2;
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      setHistory(prev => [...prev.slice(-40), board.map(row => [...row])]);
+      setBoard(newBoard);
+      setMoves(m => m + 1);
+      soundManager.playTrackPlace('H');
+      hapticManager.light();
+      if (validation && !validation.isValid) setValidation(null);
+    }
+
+    dragLastCellRef.current = { r: r2, c: c2, entryEdge };
+  };
+
+  // Touch move hit-tester for drag erase & smart path drag across mobile touchscreens
   const handleGridPointerMove = (e: React.PointerEvent) => {
-    if (!isDraggingEraser || activeTool !== 'erase') return;
     const target = document.elementFromPoint(e.clientX, e.clientY);
     const cellEl = target?.closest('[data-cell-pos]');
-    if (cellEl) {
-      const pos = cellEl.getAttribute('data-cell-pos');
-      if (pos) {
-        const [rStr, cStr] = pos.split('-');
-        const r = parseInt(rStr, 10);
-        const c = parseInt(cStr, 10);
-        const key = `${r},${c}`;
-        if (
-          !puzzle?.fixedCells[r][c] &&
-          !lockedHintKeys.has(key)
-        ) {
-          setErasingSelection(prev => {
-            if (prev.has(key)) return prev;
-            const next = new Set(prev);
-            next.add(key);
-            return next;
-          });
+    if (!cellEl) return;
+    const pos = cellEl.getAttribute('data-cell-pos');
+    if (!pos) return;
+    const [rStr, cStr] = pos.split('-');
+    const r = parseInt(rStr, 10);
+    const c = parseInt(cStr, 10);
+
+    if (isDraggingEraser && activeTool === 'erase') {
+      const key = `${r},${c}`;
+      if (!puzzle?.fixedCells[r][c] && !lockedHintKeys.has(key)) {
+        setErasingSelection(prev => {
+          if (prev.has(key)) return prev;
+          const next = new Set(prev);
+          next.add(key);
+          return next;
+        });
+      }
+    } else if (
+      isDraggingTrackRef.current &&
+      dragLastCellRef.current &&
+      activeTool !== 'erase' &&
+      activeTool !== 'x'
+    ) {
+      const prev = dragLastCellRef.current;
+      if (r !== prev.r || c !== prev.c) {
+        const dr = r - prev.r;
+        const dc = c - prev.c;
+        if (Math.abs(dr) + Math.abs(dc) === 1) {
+          // Cancel long press when dragging
+          if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+          }
+          handleSmartPathStep(prev.r, prev.c, r, c);
         }
       }
     }
@@ -572,49 +811,137 @@ export default function App() {
     }
   };
 
-  // Verify solution & trigger victory modal
+  // Verify solution & trigger realistic steam train ride / victory modal
   const handleCheck = () => {
     if (!puzzle) return;
     const result = validatePlayerBoard(board, puzzle);
     setValidation(result);
 
     if (result.isValid) {
-      soundManager.playVictory();
       setIsTimerRunning(false);
-      setShowConfetti(true);
-      setShowVictoryModal(true);
-
-      // Check all matching win achievements
-      triggerAchievement('first_win');
-      if (size === 5) triggerAchievement('size_5x5');
-      if (size === 6) triggerAchievement('size_6x6');
-      if (size === 8) triggerAchievement('size_8x8');
-
-      if (difficulty === 'hard') triggerAchievement('diff_hard');
-      if (difficulty === 'very_hard') triggerAchievement('diff_very_hard');
-      if (difficulty === 'extreme') triggerAchievement('diff_extreme');
-
-      if (seconds < 60) triggerAchievement('speed_under_60');
-      if (size === 5 && seconds < 30) triggerAchievement('speed_5x5_under_30');
-
-      if (!hasCheckedWithError.current) triggerAchievement('flawless_win');
-      if (moves < 25) triggerAchievement('efficient_builder');
-
-      // Palette achievements
-      if (activePalette.id === 'ruby') triggerAchievement('palette_ruby');
-      if (activePalette.id === 'emerald') triggerAchievement('palette_emerald');
-      if (activePalette.id === 'sapphire' && isDark) triggerAchievement('palette_sapphire_dark');
-      if (activePalette.id === 'amethyst') triggerAchievement('palette_amethyst');
-      if (activePalette.id === 'topaz') triggerAchievement('palette_topaz');
-
-      const stats = loadGameStats();
-      stats.gamesWon += 1;
-      if (stats.gamesWon >= 10) triggerAchievement('station_master_10');
-      saveGameStats(stats);
+      // If we have solution path, start realistic animated train ride!
+      if (puzzle.solutionPath && puzzle.solutionPath.length > 0) {
+        setIsTrainRiding(true);
+      } else {
+        handleTrainRideComplete();
+      }
     } else {
       soundManager.playError();
+      hapticManager.error();
       hasCheckedWithError.current = true;
     }
+  };
+
+  const handleTrainRideComplete = () => {
+    setIsTrainRiding(false);
+    soundManager.playVictory();
+    hapticManager.victory();
+    setShowConfetti(true);
+    setShowVictoryModal(true);
+
+    // Save Daily Challenge record if active
+    if (puzzle?.isDaily && puzzle.dailyDate) {
+      const current = { ...dailyRecords };
+      current[puzzle.dailyDate] = {
+        date: puzzle.dailyDate,
+        completed: true,
+        seconds,
+        moves,
+        completedAt: new Date().toISOString(),
+      };
+      try {
+        localStorage.setItem('train_tracks_daily_v1', JSON.stringify(current));
+      } catch {
+        // Storage safety
+      }
+      setDailyRecords(current);
+      triggerAchievement('daily_completed');
+    }
+
+    // Save Campaign level record if playing campaign
+    if (puzzle?.isCampaign && puzzle.campaignLevelId) {
+      const levelId = puzzle.campaignLevelId;
+      const level = getCampaignLevel(levelId);
+      let stars = 1;
+      if (hintsUsedCount === 0) stars = 2;
+      if (hintsUsedCount === 0 && (seconds <= level.targetSeconds || moves <= level.targetMoves)) {
+        stars = 3;
+      }
+      const prevRecord = campaignData.records[levelId];
+      const maxStars = Math.max(stars, prevRecord?.stars || 0);
+
+      const nextData: CampaignSaveData = {
+        ...campaignData,
+        records: {
+          ...campaignData.records,
+          [levelId]: {
+            completed: true,
+            stars: maxStars,
+            seconds: Math.min(seconds, prevRecord?.seconds || seconds),
+            moves: Math.min(moves, prevRecord?.moves || moves),
+            usedHint: hintsUsedCount > 0,
+            completedAt: new Date().toISOString(),
+          },
+        },
+      };
+      setCampaignData(nextData);
+      saveCampaignData(nextData);
+
+      setCampaignVictoryInfo({
+        levelId,
+        name: level.name,
+        starsEarned: stars,
+        nextLevelId: levelId < 50 ? levelId + 1 : undefined,
+        onNextStation:
+          levelId < 50
+            ? () => {
+                setShowVictoryModal(false);
+                handleStartCampaignLevel(levelId + 1);
+              }
+            : undefined,
+        onOpenCampaign: () => {
+          setShowVictoryModal(false);
+          setShowCampaignModal(true);
+        },
+      });
+
+      triggerAchievement('campaign_first');
+      const totalStarsNow = calculateTotalStars(nextData.records);
+      if (totalStarsNow >= 25) triggerAchievement('campaign_forest_unlocked');
+      if (totalStarsNow >= 70) triggerAchievement('campaign_arrow_unlocked');
+      if (totalStarsNow >= 130) triggerAchievement('campaign_gold_unlocked');
+      if (levelId === 50) triggerAchievement('campaign_master');
+    } else {
+      setCampaignVictoryInfo(null);
+    }
+
+    // Check all matching win achievements
+    triggerAchievement('first_win');
+    if (size === 5) triggerAchievement('size_5x5');
+    if (size === 6) triggerAchievement('size_6x6');
+    if (size === 8) triggerAchievement('size_8x8');
+
+    if (difficulty === 'hard') triggerAchievement('diff_hard');
+    if (difficulty === 'very_hard') triggerAchievement('diff_very_hard');
+    if (difficulty === 'extreme') triggerAchievement('diff_extreme');
+
+    if (seconds < 60) triggerAchievement('speed_under_60');
+    if (size === 5 && seconds < 30) triggerAchievement('speed_5x5_under_30');
+
+    if (!hasCheckedWithError.current) triggerAchievement('flawless_win');
+    if (moves < 25) triggerAchievement('efficient_builder');
+
+    // Palette achievements
+    if (activePalette.id === 'ruby') triggerAchievement('palette_ruby');
+    if (activePalette.id === 'emerald') triggerAchievement('palette_emerald');
+    if (activePalette.id === 'sapphire' && isDark) triggerAchievement('palette_sapphire_dark');
+    if (activePalette.id === 'amethyst') triggerAchievement('palette_amethyst');
+    if (activePalette.id === 'topaz') triggerAchievement('palette_topaz');
+
+    const stats = loadGameStats();
+    stats.gamesWon += 1;
+    if (stats.gamesWon >= 10) triggerAchievement('station_master_10');
+    saveGameStats(stats);
   };
 
   // Cycle gem palette
@@ -694,28 +1021,108 @@ export default function App() {
           </div>
 
           {/* Quick Controls */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            {/* Campaign Button (Wielka Ekspedycja Kolejowa) */}
+            <button
+              type="button"
+              onClick={() => {
+                soundManager.playClick();
+                setShowCampaignModal(true);
+              }}
+              title="Wielka Transkontynentalna Ekspedycja Kolejowa (Kampania)"
+              aria-label="Otwórz kampanię kolejową"
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold border transition active:scale-95 flex items-center justify-center gap-1.5 shrink-0 ${
+                isDark
+                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30'
+                  : 'bg-amber-100/70 border-amber-300 text-amber-900 hover:bg-amber-100'
+              }`}
+            >
+              <Compass className="w-4 h-4 shrink-0 text-amber-400" />
+              <span className="hidden md:inline font-bold">Kampania</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500 text-slate-950 flex items-center gap-0.5">
+                {calculateTotalStars(campaignData.records)}★
+              </span>
+            </button>
+
+            {/* Daily Challenge Button (Wyzwanie Dnia z Kalendarzem Pieczątek) */}
+            <button
+              type="button"
+              onClick={() => {
+                soundManager.playClick();
+                setShowDailyModal(true);
+              }}
+              title="Wyzwanie Dnia i Kalendarz Pieczątek"
+              aria-label="Otwórz wyzwanie dnia"
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold border transition active:scale-95 flex items-center justify-center gap-1.5 shrink-0 relative ${
+                isDark
+                  ? 'bg-amber-500/15 border-amber-500/40 text-amber-400 hover:bg-amber-500/25'
+                  : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+              }`}
+            >
+              <CalendarIcon className="w-4 h-4 shrink-0 text-amber-400" />
+              <span className="hidden md:inline font-bold">Wyzwanie Dnia</span>
+              {!isTodayCompleted && (
+                <span className="w-2 h-2 rounded-full bg-amber-400 absolute -top-0.5 -right-0.5 animate-ping" />
+              )}
+            </button>
+
             {/* PWA Install Button & Offline Badge */}
             <PWAInstallButton />
 
-            {/* Gemstone Palette Button */}
+            {/* Gemstone Palette Button (Kolory torów) */}
             <button
               type="button"
               onClick={togglePalette}
               title={`Zmień paletę torów (Aktualna: ${activePalette.polishName})`}
               aria-label={`Paleta szyn: ${activePalette.polishName}`}
-              className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition active:scale-95 ${
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold border transition active:scale-95 flex items-center justify-center gap-1.5 shrink-0 ${
                 isDark
                   ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200'
                   : 'bg-slate-50 border-slate-300 hover:bg-slate-100 text-slate-800'
               }`}
             >
-              <Palette className="w-4 h-4" style={{ color: activePalette.gemColor }} />
+              <Palette className="w-4 h-4 shrink-0" style={{ color: activePalette.gemColor }} />
               <span className="hidden sm:inline">{activePalette.polishName}</span>
               <span
-                className="w-2.5 h-2.5 rounded-full inline-block sm:hidden"
+                className="w-2.5 h-2.5 rounded-full inline-block sm:hidden shrink-0"
                 style={{ backgroundColor: activePalette.gemColor }}
               />
+            </button>
+
+            {/* Rules Modal Button (Zasady gry i instrukcja) - placed BETWEEN Palette and Achievements */}
+            <button
+              type="button"
+              onClick={() => {
+                soundManager.playClick();
+                setShowRules(true);
+              }}
+              title="Zasady gry, instrukcja i opis kafelków"
+              aria-label="Otwórz zasady gry i instrukcję"
+              className={`p-1.5 sm:p-2 rounded-xl border transition active:scale-95 flex items-center justify-center shrink-0 ${
+                isDark
+                  ? 'bg-sky-500/10 border-sky-500/40 text-sky-400 hover:bg-sky-500/20'
+                  : 'bg-sky-50 border-sky-300 text-sky-600 hover:bg-sky-100'
+              }`}
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+
+            {/* Achievements Modal Button (Osiągnięcia) */}
+            <button
+              type="button"
+              onClick={() => {
+                soundManager.playClick();
+                setShowAchievements(true);
+              }}
+              title="Osiągnięcia Maszynisty"
+              aria-label="Otwórz listę osiągnięć"
+              className={`p-1.5 sm:p-2 rounded-xl border transition active:scale-95 flex items-center justify-center shrink-0 relative ${
+                isDark
+                  ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-amber-400'
+                  : 'bg-slate-50 border-slate-300 hover:bg-slate-100 text-amber-600'
+              }`}
+            >
+              <Trophy className="w-4 h-4" />
             </button>
 
             {/* Dark / Light Toggle */}
@@ -724,7 +1131,7 @@ export default function App() {
               onClick={() => setIsDark(!isDark)}
               title={isDark ? 'Włącz jasny motyw' : 'Włącz ciemny motyw'}
               aria-label="Przełącz motyw jasny / ciemny"
-              className={`p-1.5 sm:p-2 rounded-lg border transition active:scale-95 ${
+              className={`p-1.5 sm:p-2 rounded-xl border transition active:scale-95 flex items-center justify-center shrink-0 ${
                 isDark
                   ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-amber-400'
                   : 'bg-slate-50 border-slate-300 hover:bg-slate-100 text-slate-700'
@@ -739,7 +1146,7 @@ export default function App() {
               onClick={toggleMute}
               title={isMuted ? 'Włącz dźwięki' : 'Wycisz dźwięki'}
               aria-label={isMuted ? 'Włącz dźwięki' : 'Wycisz dźwięki'}
-              className={`p-1.5 sm:p-2 rounded-lg border transition active:scale-95 ${
+              className={`p-1.5 sm:p-2 rounded-xl border transition active:scale-95 flex items-center justify-center shrink-0 ${
                 isDark
                   ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
                   : 'bg-slate-50 border-slate-300 hover:bg-slate-100 text-slate-700'
@@ -750,42 +1157,6 @@ export default function App() {
               ) : (
                 <Volume2 className="w-4 h-4 text-emerald-400" />
               )}
-            </button>
-
-            {/* Achievements Modal Button */}
-            <button
-              type="button"
-              onClick={() => {
-                soundManager.playClick();
-                setShowAchievements(true);
-              }}
-              title="Osiągnięcia Maszynisty"
-              aria-label="Otwórz listę osiągnięć"
-              className={`p-1.5 sm:p-2 rounded-lg border transition active:scale-95 relative ${
-                isDark
-                  ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-amber-400'
-                  : 'bg-slate-50 border-slate-300 hover:bg-slate-100 text-amber-600'
-              }`}
-            >
-              <Trophy className="w-4 h-4" />
-            </button>
-
-            {/* Rules Modal Button */}
-            <button
-              type="button"
-              onClick={() => {
-                soundManager.playClick();
-                setShowRules(true);
-              }}
-              title="Zasady gry"
-              aria-label="Otwórz zasady gry"
-              className={`p-1.5 sm:p-2 rounded-lg border transition active:scale-95 ${
-                isDark
-                  ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-sky-400'
-                  : 'bg-slate-50 border-slate-300 hover:bg-slate-100 text-sky-600'
-              }`}
-            >
-              <HelpCircle className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -809,6 +1180,58 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-3 py-3 sm:py-5 flex flex-col gap-3.5">
+        {/* Campaign Station Header Banner */}
+        {puzzle?.isCampaign && puzzle.campaignLevelId && (
+          <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-950/80 border border-amber-500/50 flex items-center justify-between text-xs shadow-md">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500 text-slate-950 font-black shadow-sm">
+                <Compass className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-extrabold text-amber-400">
+                  Ekspedycja Kolejowa · Stacja {puzzle.campaignLevelId} z 50
+                </span>
+                <div className="font-extrabold text-white text-sm">
+                  {getCampaignLevel(puzzle.campaignLevelId).name}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCampaignModal(true)}
+              className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold border border-amber-500/40 text-xs transition cursor-pointer"
+            >
+              Mapa Stacji
+            </button>
+          </div>
+        )}
+
+        {/* Daily Challenge Header Banner */}
+        {puzzle?.isDaily && puzzle.dailyDate && (
+          <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-emerald-950/80 border border-emerald-500/50 flex items-center justify-between text-xs shadow-md">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-500 text-slate-950 font-black shadow-sm">
+                <CalendarIcon className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-extrabold text-emerald-400">
+                  Wyzwanie Dnia · {puzzle.dailyDate}
+                </span>
+                <div className="font-extrabold text-white text-sm">
+                  Misja Dyżurnego Ruchu
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDailyModal(true)}
+              className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold border border-emerald-500/40 text-xs transition cursor-pointer"
+            >
+              Kalendarz Pieczątek
+            </button>
+          </div>
+        )}
+
         {/* Game Config Bar: Grid Size and Difficulty on the exact same height */}
         <section
           className={`p-1.5 sm:p-2 rounded-2xl border grid grid-cols-2 gap-2 text-xs shadow-sm transition ${
@@ -1161,16 +1584,27 @@ export default function App() {
                   #
                 </div>
 
-                {/* Column Clues (Top Row) */}
+                {/* Column Clues (Top Row) with live auto-cross / satisfied / overflow feedback */}
                 {puzzle.colClues.map((clue, c) => {
                   const isHidden = puzzle.hiddenColClues[c];
                   const isColError = validation?.colErrors?.includes(c);
+                  const placed = placedInCol[c] || 0;
+                  const isColSatisfied = !isHidden && placed === clue;
+                  const isColOverflow = !isHidden && placed > clue;
+
                   return (
                     <div
                       key={`col-clue-${c}`}
-                      className={`flex items-center justify-center font-black text-xs sm:text-sm rounded-md transition-colors select-none ${
-                        isColError
-                          ? 'bg-rose-500/20 text-rose-500 ring-1 ring-rose-500 font-extrabold'
+                      title={
+                        isHidden
+                          ? 'Ukryta wskazówka (?)'
+                          : `Kolumna ${c + 1}: ${placed}/${clue} torów`
+                      }
+                      className={`flex items-center justify-center font-black text-xs sm:text-sm rounded-md transition-all select-none ${
+                        isColError || isColOverflow
+                          ? 'bg-rose-500/25 text-rose-400 ring-2 ring-rose-500 font-extrabold animate-pulse'
+                          : isColSatisfied
+                          ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/50 font-black'
                           : isDark
                           ? 'bg-slate-800/80 text-amber-400'
                           : 'bg-slate-100 text-amber-600'
@@ -1185,14 +1619,24 @@ export default function App() {
                 {Array.from({ length: puzzle.size }).map((_, r) => {
                   const isHidden = puzzle.hiddenRowClues[r];
                   const isRowError = validation?.rowErrors?.includes(r);
+                  const placed = placedInRow[r] || 0;
+                  const isRowSatisfied = !isHidden && placed === puzzle.rowClues[r];
+                  const isRowOverflow = !isHidden && placed > puzzle.rowClues[r];
 
                   return (
                     <React.Fragment key={`row-frag-${r}`}>
-                      {/* Row Clue Badge */}
+                      {/* Row Clue Badge with live feedback */}
                       <div
-                        className={`flex items-center justify-center font-black text-xs sm:text-sm rounded-md transition-colors select-none ${
-                          isRowError
-                            ? 'bg-rose-500/20 text-rose-500 ring-1 ring-rose-500 font-extrabold'
+                        title={
+                          isHidden
+                            ? 'Ukryta wskazówka (?)'
+                            : `Wiersz ${r + 1}: ${placed}/${puzzle.rowClues[r]} torów`
+                        }
+                        className={`flex items-center justify-center font-black text-xs sm:text-sm rounded-md transition-all select-none ${
+                          isRowError || isRowOverflow
+                            ? 'bg-rose-500/25 text-rose-400 ring-2 ring-rose-500 font-extrabold animate-pulse'
+                            : isRowSatisfied
+                            ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/50 font-black'
                             : isDark
                             ? 'bg-slate-800/80 text-amber-400'
                             : 'bg-slate-100 text-amber-600'
@@ -1253,6 +1697,17 @@ export default function App() {
                   );
                 })}
               </div>
+
+              {/* Realistic Animated Steam Locomotive upon Victory */}
+              {isTrainRiding && puzzle.solutionPath && (
+                <AnimatedTrainRide
+                  path={puzzle.solutionPath}
+                  size={puzzle.size}
+                  onComplete={handleTrainRideComplete}
+                  gemColor={activePalette.gemColor}
+                  skinId={campaignData.selectedSkin}
+                />
+              )}
             </div>
           </div>
         )}
@@ -1291,9 +1746,11 @@ export default function App() {
           }`}
         >
           <div className="flex items-center justify-between text-xs px-1 text-slate-400 font-semibold">
-            <span>Narzędzie wprowadzania:</span>
+            <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+              Kafelki torów:
+            </span>
             <span className="text-[11px] text-amber-500 font-normal">
-              Dotknij narzędzie, potem kafelek
+              Dotknij toru, następnie kafelka planszy
             </span>
           </div>
 
@@ -1520,7 +1977,7 @@ export default function App() {
       </main>
 
       {/* Rules Modal */}
-      <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} isDark={isDark} />
+      <RulesModal isOpen={showRules} onClose={handleCloseRules} isDark={isDark} />
 
       {/* Achievements Modal */}
       <AchievementsModal
@@ -1541,7 +1998,13 @@ export default function App() {
         onClose={() => setShowVictoryModal(false)}
         onPlayAgainSame={() => {
           setShowVictoryModal(false);
-          startNewGame(size, difficulty);
+          if (puzzle?.isCampaign && puzzle.campaignLevelId) {
+            handleStartCampaignLevel(puzzle.campaignLevelId);
+          } else if (puzzle?.isDaily && puzzle.dailyDate) {
+            handleStartDaily(puzzle.dailyDate);
+          } else {
+            startNewGame(size, difficulty);
+          }
         }}
         onIncreaseDifficulty={() => {
           const nextDiff = NEXT_DIFFICULTY[difficulty];
@@ -1560,6 +2023,28 @@ export default function App() {
         moves={moves}
         seconds={seconds}
         hintsUsed={hintsUsedCount}
+        campaignInfo={campaignVictoryInfo}
+        isDaily={!!puzzle?.isDaily}
+      />
+
+      {/* Campaign Modal (Wielka Transkontynentalna Ekspedycja Kolejowa) */}
+      <CampaignModal
+        isOpen={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        onSelectLevel={handleStartCampaignLevel}
+        isDark={isDark}
+        campaignData={campaignData}
+        onSelectSkin={handleSelectSkin}
+      />
+
+      {/* Daily Challenge & Stamp Calendar Modal */}
+      <DailyChallengeModal
+        isOpen={showDailyModal}
+        onClose={() => setShowDailyModal(false)}
+        onStartDaily={handleStartDaily}
+        isDark={isDark}
+        dailyRecords={dailyRecords}
+        todayStr={todayStr}
       />
     </div>
   );

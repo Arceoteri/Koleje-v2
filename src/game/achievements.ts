@@ -159,6 +159,48 @@ export const ACHIEVEMENTS_LIST: Achievement[] = [
 
   // 5. Mastery / Weteran
   {
+    id: 'daily_completed',
+    title: 'Codzienny Dyżurny Ruchu',
+    description: 'Zdobądź swoją pierwszą pieczątkę w Wyzwaniu Dnia.',
+    icon: '📅',
+    category: 'mastery',
+  },
+  {
+    id: 'campaign_first',
+    title: 'Początek Ekspedycji',
+    description: 'Zalicz swoją pierwszą stację w Kampanii Kolejowej.',
+    icon: '🚩',
+    category: 'mastery',
+  },
+  {
+    id: 'campaign_forest_unlocked',
+    title: 'Szmaragdowy Maszynista',
+    description: 'Zdobądź 25 gwiazdek i odblokuj parowóz Leśny Ekspres.',
+    icon: '🌲',
+    category: 'mastery',
+  },
+  {
+    id: 'campaign_arrow_unlocked',
+    title: 'Błękitna Błyskawica',
+    description: 'Zdobądź 70 gwiazdek i odblokuj parowóz Błękitna Strzała.',
+    icon: '🚄',
+    category: 'mastery',
+  },
+  {
+    id: 'campaign_gold_unlocked',
+    title: 'Cesarski Inżynier',
+    description: 'Zdobądź 130 gwiazdek i odblokuj Złotego Smoka Szyn.',
+    icon: '👑',
+    category: 'mastery',
+  },
+  {
+    id: 'campaign_master',
+    title: 'Władca Magistrali',
+    description: 'Ukończ wszystkie 50 stacji Wielkiej Ekspedycji Kolejowej.',
+    icon: '🏆',
+    category: 'mastery',
+  },
+  {
     id: 'station_master_10',
     title: 'Zawiadowca Stacji',
     description: 'Rozwiąż łącznie 10 łamigłówek kolejowych.',
